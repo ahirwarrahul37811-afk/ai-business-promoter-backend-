@@ -1,19 +1,50 @@
-{
-  "name": "ai-business-promoter-backend",
-  "version": "1.0.0",
-  "description": "AI Business Promoter backend",
-  "main": "server.js",
-  "type": "module",
-  "engines": {
-    "node": "20.x"
-  },
-  "scripts": {
-    "start": "node server.js"
-  },
-  "dependencies": {
-    "express": "^4.18.2",
-    "cors": "^2.8.5",
-    "dotenv": "^16.3.1",
-    "node-fetch": "^3.3.2"
+const express = require("express");
+const cors = require("cors");
+const dotenv = require("dotenv");
+const fetch = require("node-fetch");
+
+dotenv.config();
+
+const app = express();
+app.use(cors());
+app.use(express.json());
+
+// ✅ Test route (for checking backend)
+app.get("/", (req, res) => {
+  res.send("✅ AI Business Promoter Backend is running fine!");
+});
+
+// ✅ ChatGPT API route
+app.post("/api/prompt", async (req, res) => {
+  const { prompt } = req.body;
+
+  if (!prompt) {
+    return res.status(400).json({ error: "Prompt missing" });
   }
-}
+
+  try {
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${process.env.OPENAI_KEY}`,
+      },
+      body: JSON.stringify({
+        model: "gpt-3.5-turbo",
+        messages: [{ role: "user", content: prompt }],
+      }),
+    });
+
+    const data = await response.json();
+    res.json({ reply: data.choices?.[0]?.message?.content || "No reply" });
+  } catch (error) {
+    console.error("❌ Error:", error);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// ✅ Use dynamic port for Render
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
+
+module.exports = app;
