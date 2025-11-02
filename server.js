@@ -32,7 +32,15 @@ app.post("/api/prompt", async (req, res) => {
       },
       body: JSON.stringify({
          model: "mistralai/mixtral-8x7b-instruct", // ✅ Free + Fast model
-        messages: [{ role: "user", content: prompt }]
+
+    messages: [
+  {
+    role: "system",
+    content:
+      "You are a helpful assistant. Always reply in the same language the user is using (detect the language automatically).",
+  },
+  { role: "user", content: prompt },
+],
       })
     });
 
