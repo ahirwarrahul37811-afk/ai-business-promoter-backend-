@@ -9,39 +9,38 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// ✅ Test route (for checking backend)
 app.get("/", (req, res) => {
   res.send("✅ AI Business Promoter Backend is running fine!");
 });
 
-app.post("/generate", async (req, res) => {
+// ✅ ChatGPT API route
+app.post("/api/prompt", async (req, res) => {
   const { prompt } = req.body;
 
-  if (!prompt) {
-    return res.status(400).json({ error: "Prompt is required" });
-  }
+  if (!prompt) return res.status(400).json({ error: "Prompt missing" });
 
   try {
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${process.env.OPENAI_KEY}`,
         "Content-Type": "application/json",
+        Authorization: `Bearer ${process.env.OPENAI_KEY}`,
       },
       body: JSON.stringify({
-        model: "gpt-4o-mini",
+        model: "gpt-3.5-turbo",
         messages: [{ role: "user", content: prompt }],
       }),
     });
 
     const data = await response.json();
-    res.json(data);
-  } catch (error) {
-    console.error("Error:", error);
-    res.status(500).json({ error: "Internal Server Error" });
+    res.json({ reply: data.choices?.[0]?.message?.content || "No reply" });
+  } catch (err) {
+    console.error("❌ Error:", err);
+    res.status(500).json({ error: "Server error" });
   }
 });
 
-const PORT = process.env.PORT || 1000;
-app.listen(PORT, () => {
-  console.log(`✅ Server running on port ${PORT}`);
-});
+// ✅ Use dynamic port for Render
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
