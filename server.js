@@ -1,12 +1,20 @@
-const express = require("express");
-const cors = require("cors");
-const dotenv = require("dotenv");
-const fetch = require("node-fetch");
+import express from "express";
+import cors from "cors";
+import dotenv from "dotenv";
 
+// ✅ Node 18+ has built-in fetch — no need for node-fetch
+// (so we remove "import fetch from 'node-fetch'")
 dotenv.config();
 
 const app = express();
-app.use(cors());
+
+// ✅ CORS setup
+app.use(cors({
+  origin: "*",
+  methods: ["GET", "POST"],
+  allowedHeaders: ["Content-Type"],
+}));
+
 app.use(express.json());
 
 // ✅ Test route
@@ -14,10 +22,13 @@ app.get("/", (req, res) => {
   res.send("✅ AI Business Promoter Backend is running fine!");
 });
 
-// ✅ ChatGPT API route
+// ✅ ChatGPT route
 app.post("/api/prompt", async (req, res) => {
   const { prompt } = req.body;
-  if (!prompt) return res.status(400).json({ error: "Prompt missing" });
+
+  if (!prompt) {
+    return res.status(400).json({ error: "Prompt missing" });
+  }
 
   try {
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -33,13 +44,18 @@ app.post("/api/prompt", async (req, res) => {
     });
 
     const data = await response.json();
-    res.json({ reply: data.choices?.[0]?.message?.content || "No reply" });
-  } catch (err) {
-    console.error("❌ Error:", err);
-    res.status(500).json({ error: "Server error" });
+
+    if (!data || !data.choices || !data.choices[0]) {
+      return res.json({ reply: "⚠️ No reply received from AI." });
+    }
+
+    res.json({ reply: data.choices[0].message.content });
+  } catch (error) {
+    console.error("❌ Error while fetching from OpenAI:", error);
+    res.status(500).json({ error: "Internal Server Error" });
   }
 });
 
-// ✅ Use dynamic port for Render
+// ✅ Port setup for Render
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
+app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
