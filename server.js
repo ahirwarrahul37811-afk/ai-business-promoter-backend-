@@ -510,7 +510,7 @@ function generateTemplatePrompt(template, message) {
 
 // ⚙️ Server Setup
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
+app.listen(PORT, "0.0.0.0", () => {
     console.log(`🚀 AI Business Promoter Backend running on port ${PORT}`);
     console.log(`📊 Available APIs: ${Object.keys(API_CONFIG).join(', ')}`);
     console.log(`🔑 OpenRouter: ${process.env.OPENROUTER_API_KEY ? '✅ Configured' : '❌ Not Configured'}`);
