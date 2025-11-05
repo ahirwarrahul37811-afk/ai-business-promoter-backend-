@@ -1,4 +1,3 @@
-// ✅ PROMOTIONAI - FINAL ADVANCED BACKEND (All Features Included)
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
@@ -7,11 +6,9 @@ import fetch from "node-fetch";
 dotenv.config();
 const app = express();
 
-// ✅ Basic Setup
 app.use(cors({ origin: "*", methods: ["GET", "POST"], allowedHeaders: ["Content-Type", "Authorization"] }));
 app.use(express.json());
 
-// ✅ API Configuration (Same 5 APIs)
 const API_CONFIG = {
   openrouter: {
     name: "OpenRouter",
@@ -48,25 +45,23 @@ app.get("/", (req, res) => {
   res.json({
     status: "✅ PromotionAI Backend Running",
     apis: Object.keys(API_CONFIG),
-    message: "All 5 APIs are configured and ready!",
     time: new Date().toISOString()
   });
 });
 
-// ✅ Auto Timeout Helper
-async function withTimeout(promise, ms, apiName) {
-  const timeout = new Promise((_, reject) =>
-    setTimeout(() => reject(new Error(`${apiName} took too long`)), ms)
-  );
-  return Promise.race([promise, timeout]);
-}
+// ✅ Check if API Keys Loaded
+app.get("/api/check-keys", (req, res) => {
+  const keysStatus = {};
+  for (const [api, config] of Object.entries(API_CONFIG)) {
+    keysStatus[api] = config.key && config.key.length > 10 ? "✅ Key Loaded" : "❌ Missing or Invalid Key";
+  }
+  res.json(keysStatus);
+});
 
-// ✅ Smart Prompt Builder (Template + Default Mode)
+// ✅ Smart Prompt Builder
 function buildPrompt(prompt, template) {
-  // अगर केवल नंबर या calculation दिया गया है, तो direct answer दो (no AI call)
   if (/^[0-9+\-*/().\s]+$/.test(prompt)) {
     try {
-      // eslint-disable-next-line no-eval
       const result = eval(prompt);
       return `The result of ${prompt} is ${result}`;
     } catch {
@@ -74,175 +69,56 @@ function buildPrompt(prompt, template) {
     }
   }
 
-  // अगर Template चुना गया है
   if (template && template.trim() !== "" && template !== "default") {
-    return `
-You are a professional marketing copywriter.
-Create a high-quality, ready-to-post ${template} based on the user's input.
-
-🧠 Input: ${prompt}
-
-🎯 Requirements:
-- Write a complete ${template} (not instructions)
-- Make it engaging, creative and easy to read
-- Add emojis and hashtags naturally if suitable
-- Return only the final ${template} text (no explanations)
-    `;
+    return `You are a marketing copywriter. Write a ${template} for: ${prompt}. Use emojis and hashtags naturally.`;
   }
 
-  // Default Answer Mode
-  return `
-You are a helpful creative AI writer.
-Generate a natural, well-written and complete answer for this prompt.
-
-🧠 Input: ${prompt}
-
-🎯 Requirements:
-- Write in a clear and friendly way
-- If it's a question, answer it directly
-- If it's a statement, expand it meaningfully
-- Return plain text (no extra instructions)
-    `;
+  return `You are a helpful AI assistant. Answer clearly and naturally for: ${prompt}`;
 }
 
-// ✅ Main Prompt Endpoint
+// ✅ Prompt Route
 app.post("/api/prompt", async (req, res) => {
   const { prompt, apiPreference = "auto", creativity = 70, template = "default" } = req.body;
   if (!prompt) return res.status(400).json({ error: "Prompt is required" });
 
-  // 🔄 Wake up Render
-  fetch("https://ai-business-promoter-backend.onrender.com/").catch(() => {});
-
   try {
-    let response;
-    let usedAPI = "";
-
     const finalPrompt = buildPrompt(prompt, template);
+    let response, usedAPI = "";
 
-    if (apiPreference !== "auto" && API_CONFIG[apiPreference]) {
-      response = await callSpecificAPI(apiPreference, finalPrompt, creativity);
-      usedAPI = apiPreference;
-    } else {
-      const apiOrder = ["openai", "gemini", "cohere", "openrouter", "huggingface"];
-      for (const apiName of apiOrder) {
-        try {
-          if (!API_CONFIG[apiName].key) continue;
-          response = await callSpecificAPI(apiName, finalPrompt, creativity);
-          usedAPI = apiName;
-          break;
-        } catch (err) {
-          console.log(`❌ ${apiName} failed:`, err.message);
-          continue;
-        }
+    const apiOrder = apiPreference !== "auto" ? [apiPreference] : ["openai", "gemini", "cohere", "openrouter", "huggingface"];
+
+    for (const apiName of apiOrder) {
+      const config = API_CONFIG[apiName];
+      if (!config?.key) continue;
+      try {
+        response = await callSpecificAPI(apiName, finalPrompt, creativity);
+        usedAPI = apiName;
+        break;
+      } catch (e) {
+        console.log(`${apiName} failed:`, e.message);
       }
     }
 
-    if (!response) throw new Error("All APIs failed to generate response");
+    if (!response) throw new Error("All APIs failed");
 
-    res.json({
-      success: true,
-      reply: response,
-      apiUsed: usedAPI,
-      timestamp: new Date().toISOString()
-    });
-
-  } catch (error) {
-    console.error("⚠️ All APIs failed:", error.message);
-    const fallbackResponse = generateFallback(prompt);
-    res.json({
-      success: true,
-      apiUsed: "fallback",
-      reply: fallbackResponse,
-      note: "Generated by fallback AI system"
-    });
+    res.json({ success: true, reply: response, apiUsed: usedAPI, timestamp: new Date().toISOString() });
+  } catch (err) {
+    res.json({ success: true, reply: `⚠️ All APIs failed. Default response:\n${prompt}`, apiUsed: "fallback" });
   }
 });
 
-// ✅ Image Generation Endpoint
-app.post("/api/image", async (req, res) => {
-  const { prompt } = req.body;
-  if (!prompt) return res.status(400).json({ error: "Image prompt required" });
-
-  try {
-    res.json({
-      success: true,
-      apiUsed: "mock",
-      imageUrl: "https://via.placeholder.com/512x512/4CAF50/FFFFFF?text=AI+Generated+Image"
-    });
-  } catch (error) {
-    res.status(500).json({ error: "Image generation failed" });
-  }
-});
-
-// ✅ API Call Handler (with Timeout)
+// ✅ API Call Functions
 async function callSpecificAPI(apiName, prompt, creativity = 70) {
   switch (apiName) {
-    case "openai":
-      return await withTimeout(callOpenAI(prompt, creativity), 7000, "OpenAI");
-    case "gemini":
-      return await withTimeout(callGemini(prompt), 7000, "Gemini");
-    case "cohere":
-      return await withTimeout(callCohere(prompt, creativity), 7000, "Cohere");
-    case "openrouter":
-      return await withTimeout(callOpenRouter(prompt, creativity), 7000, "OpenRouter");
-    case "huggingface":
-      return await withTimeout(callHuggingFace(prompt), 7000, "HuggingFace");
-    default:
-      throw new Error(`Unknown API: ${apiName}`);
+    case "openai": return callOpenAI(prompt, creativity);
+    case "gemini": return callGemini(prompt);
+    case "cohere": return callCohere(prompt, creativity);
+    case "openrouter": return callOpenRouter(prompt, creativity);
+    case "huggingface": return callHuggingFace(prompt);
+    default: throw new Error("Unknown API");
   }
 }
 
-// 🌐 OpenRouter
-async function callOpenRouter(prompt, creativity) {
-  const res = await fetch(API_CONFIG.openrouter.url, {
-    method: "POST",
-    headers: { "Authorization": `Bearer ${API_CONFIG.openrouter.key}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: API_CONFIG.openrouter.model,
-      messages: [{ role: "user", content: prompt }],
-      temperature: creativity / 100,
-      max_tokens: 500
-    })
-  });
-  const data = await res.json();
-  return data.choices?.[0]?.message?.content || "No response from OpenRouter";
-}
-
-// 🌐 HuggingFace
-async function callHuggingFace(prompt) {
-  const res = await fetch(API_CONFIG.huggingface.url, {
-    method: "POST",
-    headers: { "Authorization": `Bearer ${API_CONFIG.huggingface.key}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ inputs: prompt, parameters: { max_length: 200 } })
-  });
-  const data = await res.json();
-  return data[0]?.generated_text || "No response from HuggingFace";
-}
-
-// 🌐 Gemini
-async function callGemini(prompt) {
-  const url = `${API_CONFIG.gemini.url}?key=${API_CONFIG.gemini.key}`;
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
-  });
-  const data = await res.json();
-  return data.candidates?.[0]?.content?.parts?.[0]?.text || "No response from Gemini";
-}
-
-// 🌐 Cohere
-async function callCohere(prompt, creativity) {
-  const res = await fetch(API_CONFIG.cohere.url, {
-    method: "POST",
-    headers: { "Authorization": `Bearer ${API_CONFIG.cohere.key}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ model: API_CONFIG.cohere.model, prompt, temperature: creativity / 100, max_tokens: 300 })
-  });
-  const data = await res.json();
-  return data.generations?.[0]?.text || "No response from Cohere";
-}
-
-// 🌐 OpenAI
 async function callOpenAI(prompt, creativity) {
   const res = await fetch(API_CONFIG.openai.url, {
     method: "POST",
@@ -251,26 +127,59 @@ async function callOpenAI(prompt, creativity) {
       model: API_CONFIG.openai.model,
       messages: [{ role: "user", content: prompt }],
       temperature: creativity / 100,
-      max_tokens: 500
+      max_tokens: 400
     })
   });
   const data = await res.json();
   return data.choices?.[0]?.message?.content || "No response from OpenAI";
 }
 
-// ✅ Smart Fallback
-function generateFallback(prompt) {
-  const responses = [
-    `🚀 **Marketing Post:** ${prompt}\n\nYour brand deserves attention! Here's professional, engaging content for instant promotion.`,
-    `🎯 **Business Copy:** ${prompt}\n\nBoost your audience with this ready-to-share content designed to inspire engagement.`,
-    `✨ **Creative Post:** ${prompt}\n\nPerfect for social media — catchy, authentic, and impactful!`
-  ];
-  return responses[Math.floor(Math.random() * responses.length)];
+async function callGemini(prompt) {
+  const res = await fetch(`${API_CONFIG.gemini.url}?key=${API_CONFIG.gemini.key}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+  });
+  const data = await res.json();
+  return data.candidates?.[0]?.content?.parts?.[0]?.text || "No response from Gemini";
 }
 
-// ✅ Server Start
+async function callCohere(prompt, creativity) {
+  const res = await fetch(API_CONFIG.cohere.url, {
+    method: "POST",
+    headers: { "Authorization": `Bearer ${API_CONFIG.cohere.key}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ model: API_CONFIG.cohere.model, prompt, temperature: creativity / 100 })
+  });
+  const data = await res.json();
+  return data.generations?.[0]?.text || "No response from Cohere";
+}
+
+async function callOpenRouter(prompt, creativity) {
+  const res = await fetch(API_CONFIG.openrouter.url, {
+    method: "POST",
+    headers: { "Authorization": `Bearer ${API_CONFIG.openrouter.key}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: API_CONFIG.openrouter.model,
+      messages: [{ role: "user", content: prompt }],
+      temperature: creativity / 100
+    })
+  });
+  const data = await res.json();
+  return data.choices?.[0]?.message?.content || "No response from OpenRouter";
+}
+
+async function callHuggingFace(prompt) {
+  const res = await fetch(API_CONFIG.huggingface.url, {
+    method: "POST",
+    headers: { "Authorization": `Bearer ${API_CONFIG.huggingface.key}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ inputs: prompt })
+  });
+  const data = await res.json();
+  return data[0]?.generated_text || "No response from HuggingFace";
+}
+
+// ✅ Start Server
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, "0.0.0.0", () => {
   console.log(`🚀 PromotionAI Backend running on port ${PORT}`);
-  console.log(`🧠 APIs Loaded:`, Object.keys(API_CONFIG));
 });
