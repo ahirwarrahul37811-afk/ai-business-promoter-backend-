@@ -82,7 +82,7 @@ app.post("/api/image", async (req, res) => {
   const { prompt, style } = req.body;
   if (!prompt) return res.status(400).send("No image prompt provided.");
 
-  const models = ["openai/dall-e-3", "stabilityai/stable-diffusion-xl"];
+  const models = ["stabilityai/stable-diffusion-xl", "black-forest-labs/flux-schnell"];
   let images = [];
 
   for (const model of models) {
