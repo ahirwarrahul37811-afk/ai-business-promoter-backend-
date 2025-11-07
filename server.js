@@ -83,14 +83,40 @@ app.post("/api/prompt", async (req, res) => {
   }
 });
 
-// 🎨 Image Generation (placeholder / proxy)
+// 🎨 Real AI Image Generation using OpenRouter (DALL·E-like)
 app.post("/api/image", async (req, res) => {
   const { prompt, style } = req.body;
   if (!prompt) return res.status(400).send("No image prompt provided.");
-  const fakeUrl = `https://via.placeholder.com/512x512.png?text=${encodeURIComponent(
-    prompt.slice(0, 40)
-  )}`;
-  res.json({ images: [fakeUrl] });
+
+  try {
+    const response = await fetch("https://openrouter.ai/api/v1/images/generations", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: "openai/dall-e-3",   // 🔥 high-quality AI image model
+        prompt: `${prompt}\nStyle: ${style}`,
+        size: "1024x1024",
+        n: 1,
+      }),
+    });
+
+    const data = await response.json();
+    const images = data?.data?.map(img => img.url).filter(Boolean) || [];
+
+    if (!images.length) throw new Error("No image URLs returned from OpenRouter.");
+
+    res.json({ images });
+  } catch (err) {
+    console.error("Image generation failed:", err.message);
+    // fallback placeholder (safe)
+    const safeUrl = `https://placehold.co/512x512?text=${encodeURIComponent(
+      prompt.slice(0, 40)
+    )}`;
+    res.json({ images: [safeUrl] });
+  }
 });
 
 // 🚀 Start Server
