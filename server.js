@@ -112,6 +112,33 @@ app.post("/api/image", async (req, res) => {
   }
 });
 
+// ✅ Razorpay Payment Integration
+import Razorpay from "razorpay";
+
+const razorpay = new Razorpay({
+  key_id: process.env.RAZORPAY_KEY_ID,
+  key_secret: process.env.RAZORPAY_KEY_SECRET
+});
+
+// ✅ Create Order API (for frontend)
+app.post("/api/create-order", async (req, res) => {
+  const options = {
+    amount: 9900, // ₹99 = 9900 paise
+    currency: "INR",
+    receipt: `order_rcptid_${Date.now()}`,
+  };
+  try {
+    const order = await razorpay.orders.create(options);
+    res.json(order);
+  } catch (error) {
+    console.error("❌ Order creation failed:", error);
+    res.status(500).send({ error: "Order creation failed" });
+  }
+});
+
+
+
+
 // 🚀 START SERVER (PORT 5000)
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
