@@ -1,4 +1,4 @@
-// ✅ PromotionAI - Smart Backend with Gallery + AI Image
+// ✅ PromotionAI - Smart Backend (AI Text + Cloudinary Gallery + Old Features)
 import express from "express";
 import cors from "cors";
 import fetch from "node-fetch";
@@ -11,11 +11,12 @@ const app = express();
 app.use(cors());
 app.use(express.json({ limit: "2mb" }));
 
+// 🔑 API Keys & Model
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 const MODEL = process.env.OPENROUTER_MODEL || "gpt-4o-mini";
-const GALLERY_PATH = new URL('./gallery_manifest.json', import.meta.url).pathname;
+const GALLERY_PATH = new URL("./gallery_manifest.json", import.meta.url).pathname;
 
-// 🧠 Helper: Build Smart Prompt for AI tools
+// 🧠 Helper: Smart prompt builder for tools
 function buildToolPrompt(tool, text) {
   switch (tool) {
     case "rephrase":
@@ -31,7 +32,7 @@ function buildToolPrompt(tool, text) {
   }
 }
 
-// 🧩 Text AI Endpoint
+// ✍️ TEXT GENERATION API (OpenRouter)
 app.post("/api/prompt", async (req, res) => {
   const { prompt, tone, length, businessType, template, creativity, action, tool } = req.body;
 
@@ -40,11 +41,12 @@ app.post("/api/prompt", async (req, res) => {
   let finalPrompt = "";
   let maxTokens = 600;
 
+  // 🧩 For tools like rephrase / translate / shorten
   if (action === "tool" || template === "tool" || tool) {
-    const shortPrompt = buildToolPrompt(tool || "general", prompt);
-    finalPrompt = shortPrompt;
+    finalPrompt = buildToolPrompt(tool || "general", prompt);
     maxTokens = 250;
   } else {
+    // 🧠 Full creative generation
     finalPrompt = `
 🎯 Template: ${template || "Custom"}
 🏢 Business Type: ${businessType || "General"}
@@ -73,7 +75,7 @@ app.post("/api/prompt", async (req, res) => {
 
     const data = await response.json();
     const output =
-      data?.choices?.[0]?.message?.content?.trim() || "No output received from model.";
+      data?.choices?.[0]?.message?.content?.trim() || "No output received from AI.";
     res.json({ output });
   } catch (error) {
     console.error("AI Error:", error.message);
@@ -81,38 +83,11 @@ app.post("/api/prompt", async (req, res) => {
   }
 });
 
-// 🎨 Image AI Endpoint
+// 🖼️ CLOUDINARY IMAGE API (Gallery Based)
 app.post("/api/image", async (req, res) => {
   const { prompt, template } = req.body;
   if (!prompt) return res.status(400).send("No image prompt provided.");
 
-  // Try AI Image first
-  try {
-    const response = await fetch("https://openrouter.ai/api/v1/images/generations", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${OPENROUTER_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: "openai/dall-e-3",
-        prompt: `${prompt}`,
-        size: "1024x1024",
-        n: 1,
-      }),
-    });
-
-    const data = await response.json();
-    const images = data?.data?.map(img => img.url).filter(Boolean) || [];
-
-    if (images.length > 0) {
-      return res.json({ images, source: "ai" });
-    }
-  } catch (err) {
-    console.warn("AI image generation failed, using gallery fallback...");
-  }
-
-  // 🖼️ Fallback: Local/Cloudinary Gallery (JSON)
   try {
     const galleryData = JSON.parse(fs.readFileSync(GALLERY_PATH, "utf-8"));
     const category = (template || "general").toLowerCase();
@@ -121,15 +96,15 @@ app.post("/api/image", async (req, res) => {
 
     if (images.length > 0) {
       const randomImage = images[Math.floor(Math.random() * images.length)];
-      return res.json({ images: [randomImage], source: "gallery", template: category });
+      return res.json({ images: [randomImage], source: "cloudinary", template: category });
     } else {
       return res.json({
         images: [`https://placehold.co/512x512?text=${encodeURIComponent(prompt)}`],
         source: "placeholder"
       });
     }
-  } catch (galleryErr) {
-    console.error("Gallery error:", galleryErr.message);
+  } catch (err) {
+    console.error("Gallery error:", err.message);
     return res.json({
       images: [`https://placehold.co/512x512?text=${encodeURIComponent(prompt)}`],
       source: "fallback"
@@ -137,8 +112,8 @@ app.post("/api/image", async (req, res) => {
   }
 });
 
-// 🚀 Start Server
-const PORT = process.env.PORT || 3000;
+// 🚀 START SERVER (PORT 5000)
+const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`✅ PromotionAI backend running at http://localhost:${PORT}`);
 });
