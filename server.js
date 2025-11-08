@@ -118,7 +118,7 @@ const razorpay = new Razorpay({
 // ✅ Create Order API (for frontend)
 app.post("/api/create-order", async (req, res) => {
   const options = {
-    amount: 100, // ₹99 = 99 INR * 100
+    amount: 9900, // ₹99 = 99 INR * 100
     currency: "INR",
     receipt: `order_rcptid_${Date.now()}`,
   };
