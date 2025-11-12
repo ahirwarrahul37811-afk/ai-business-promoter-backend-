@@ -109,7 +109,68 @@ app.post("/api/image", async (req, res) => {
   }
 });
 
+/* ===========================================================
+   🤖 PROMOTIONAI UNIVERSAL CHAT ENDPOINT (NO ADMIN VERSION)
+   ✅ Works without firebase-admin, using client-sent data
+   =========================================================== */
 
+app.post("/api/chat", async (req, res) => {
+  try {
+    const { message, plan, queries, referredBy } = req.body;
+
+    // 🔹 Step 1: Basic validation
+    if (!message) return res.status(400).json({ reply: "❌ Message missing" });
+    if (!plan) return res.json({ reply: "⚠️ कृपया पहले Login करें ताकि Chat का उपयोग कर सकें।" });
+
+    // 🔹 Step 2: Free users limit check
+    const freeLimit = 10;
+    if (plan === "free" && queries >= freeLimit) {
+      return res.json({
+        reply: "🚫 आपकी Free Chat limit खत्म हो गई है। Premium Plan लेकर Chat जारी रखें 💎",
+      });
+    }
+
+    // 🔹 Step 3: AI Reply via OpenRouter (GPT-4o-mini)
+    const aiResponse = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${process.env.OPENROUTER_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: process.env.OPENROUTER_MODEL || "gpt-4o-mini",
+        messages: [
+          {
+            role: "system",
+            content:
+              "You are PromotionAI Chatbot. Reply in Hindi if user writes in Hindi, else in English. Keep replies short, friendly, and natural.",
+          },
+          { role: "user", content: message },
+        ],
+        max_tokens: 400,
+      }),
+    });
+
+    const data = await aiResponse.json();
+    const reply =
+      data?.choices?.[0]?.message?.content?.trim() ||
+      "⚠️ माफ़ करें, मैं अभी जवाब नहीं दे सकता।";
+
+    // 🔹 Step 4: Referral reward (simulate on frontend)
+    // अब reward logic frontend या cloud function में होगा
+    if (plan === "premium" && referredBy) {
+      console.log(`💰 Reward trigger: ₹10 to referrer ${referredBy}`);
+    }
+
+    // 🔹 Step 5: Return AI reply
+    res.json({ reply });
+  } catch (err) {
+    console.error("💥 Chat Error:", err.message);
+    res.status(500).json({
+      reply: "⚠️ Server Error! कृपया बाद में कोशिश करें।",
+    });
+  }
+});
 
 
 
