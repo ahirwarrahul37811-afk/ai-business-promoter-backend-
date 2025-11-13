@@ -160,7 +160,7 @@ app.post("/api/create-order", async (req, res) => {
   try {
     const { amount } = req.body; // amount in paise recommended
     const opts = {
-      amount: amount || 9900,
+      amount: amount || 100,
       currency: "INR",
       receipt: `order_rcptid_${Date.now()}`,
     };
