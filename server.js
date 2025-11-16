@@ -115,13 +115,13 @@ const razorpay = new Razorpay({
   key_secret: process.env.RAZORPAY_KEY_SECRET,
 });
 
-// ✅ Create Order API (for frontend)
-app.post("/api/create-order", async (req, res) => {
-  const options = {
-    amount: 100, // ₹99 = 99 INR * 100
-    currency: "INR",
-    receipt: `order_rcptid_${Date.now()}`,
-  };
+const { amount } = req.body;   // dynamic amount from frontend
+
+const options = {
+  amount: amount,              // dynamic INR in paise
+  currency: "INR",
+  receipt: `order_rcptid_${Date.now()}`,
+};
 
   try {
     const order = await razorpay.orders.create(options);
@@ -176,4 +176,5 @@ app.post("/api/payment-success", async (req, res) => {
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`✅ PromotionAI backend running at http://localhost:${PORT}`);
+});calhost:${PORT}`);
 });
