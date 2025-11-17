@@ -164,11 +164,9 @@ app.get("/", (req, res) => {
   res.send("✅ PromotionAI backend running!");
 });
 
-// 🎬 TEXT → VIDEO (Replicate HunyuanVideo)
+// 🎬 TEXT → VIDEO (HunyuanVideo)
 app.post("/api/video-generate", async (req, res) => {
   const { prompt } = req.body;
-
-  if (!prompt) return res.status(400).json({ error: "Prompt missing" });
 
   try {
     const response = await fetch("https://api.replicate.com/v1/predictions", {
@@ -178,21 +176,23 @@ app.post("/api/video-generate", async (req, res) => {
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        version: "hunyuanvideo",   // Free open-source video model
+        // Correct model + version
+        version: "e37f8d4d20c84e7d94c21b8a91d9e55f",
         input: {
           prompt: prompt,
-          duration: 10,
-          fps: 24
+          duration: 5,
+          resolution: "720p"
         }
       })
     });
 
     const data = await response.json();
-    res.json(data); // returns job ID
+    res.json({ id: data.id });   // 👈 return only job ID
   } catch (err) {
-    res.status(500).json({ error: "Video generation failed", details: err.message });
+    res.status(500).json({ error: "Video generate failed", message: err.message });
   }
 });
+
 
 // 🎬 VIDEO STATUS
 app.get("/api/video-status/:id", async (req, res) => {
