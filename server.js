@@ -164,9 +164,12 @@ app.get("/", (req, res) => {
   res.send("✅ PromotionAI backend running!");
 });
 
-// 🎬 TEXT → VIDEO (HunyuanVideo)
+
+// 🎬 TEXT → VIDEO (Flux-Schnell Model)
 app.post("/api/video-generate", async (req, res) => {
   const { prompt } = req.body;
+
+  if (!prompt) return res.status(400).json({ error: "Prompt missing" });
 
   try {
     const response = await fetch("https://api.replicate.com/v1/predictions", {
@@ -176,18 +179,23 @@ app.post("/api/video-generate", async (req, res) => {
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        // Correct model + version
-        version: "e37f8d4d20c84e7d94c21b8a91d9e55f",
+        version: "0c7c2fa32dc265cb6e8df7567c3d6ae9ad64633b43062f730ec8d037f0396d",
         input: {
           prompt: prompt,
-          duration: 5,
-          resolution: "720p"
+          fps: 24,
+          duration: 4
         }
       })
     });
 
     const data = await response.json();
-    res.json({ id: data.id });   // 👈 return only job ID
+
+    if (!data.id) {
+      return res.status(500).json({ error: "Replicate did not return job ID", raw: data });
+    }
+
+    res.json({ id: data.id });
+
   } catch (err) {
     res.status(500).json({ error: "Video generate failed", message: err.message });
   }
@@ -196,19 +204,19 @@ app.post("/api/video-generate", async (req, res) => {
 
 // 🎬 VIDEO STATUS
 app.get("/api/video-status/:id", async (req, res) => {
-  const id = req.params.id;
-
   try {
-    const response = await fetch(`https://api.replicate.com/v1/predictions/${id}`, {
+    const response = await fetch(`https://api.replicate.com/v1/predictions/${req.params.id}`, {
       headers: { "Authorization": `Bearer ${process.env.REPLICATE_API_KEY}` }
     });
 
     const data = await response.json();
     res.json(data);
+
   } catch (err) {
     res.status(500).json({ error: "Status check failed", details: err.message });
   }
 });
+
 
 
 // 🚀 START SERVER
