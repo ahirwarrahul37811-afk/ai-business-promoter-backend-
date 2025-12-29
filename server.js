@@ -13,6 +13,69 @@ const app = express();
 app.use(cors());
 app.use(express.json({ limit: "2mb" }));
 
+
+// =========================
+//  QR BUSINESS CARD API
+// =========================
+import QRCode from "qrcode";
+import { createCanvas, loadImage } from "canvas";
+
+app.post("/api/qr-card", async (req, res) => {
+  try {
+    const { name, business, phone, location, link } = req.body;
+
+    if (!name || !business || !phone) {
+      return res.json({ error: "Missing fields" });
+    }
+
+    // 1️⃣ Generate WhatsApp link
+    const waUrl = `https://wa.me/${phone}?text=Hi%20${encodeURIComponent(name)}%20from%20${encodeURIComponent(business)}`;
+    const qrData = link || waUrl;
+
+    // 2️⃣ Generate QR Buffer
+    const qrBuffer = await QRCode.toBuffer(qrData, { width: 250 });
+
+    // 3️⃣ Create Canvas Card
+    const width = 600, height = 350;
+    const canvas = createCanvas(width, height);
+    const ctx = canvas.getContext("2d");
+
+    // card bg
+    ctx.fillStyle = "#4F46E5";
+    ctx.fillRect(0, 0, width, height);
+
+    // white panel
+    ctx.fillStyle = "white";
+    ctx.fillRect(20, 20, width - 40, height - 40);
+
+    // text
+    ctx.fillStyle = "#111";
+    ctx.font = "bold 28px sans-serif";
+    ctx.fillText(business, 40, 70);
+
+    ctx.font = "20px sans-serif";
+    ctx.fillText(`👤 ${name}`, 40, 120);
+    ctx.fillText(`📞 ${phone}`, 40, 160);
+    if (location) ctx.fillText(`📍 ${location}`, 40, 200);
+    if (link) ctx.fillText(`🔗 ${link}`, 40, 240);
+
+    // QR Image
+    const qrImg = await loadImage(qrBuffer);
+    ctx.drawImage(qrImg, width - 220, height - 260, 200, 200);
+
+    // Export card
+    const cardImage = canvas.toDataURL("image/png");
+
+    res.json({ success: true, cardImage });
+
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: true, message: err.message });
+  }
+});
+
+
+
 // 🔑 API Keys
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
 const MODEL = process.env.OPENROUTER_MODEL || "gpt-4o-mini";
@@ -219,43 +282,7 @@ app.get("/api/video-status/:id", async (req, res) => {
 
 
 
-// ======================= QR Business Card API ==========================
-import QRCode from "qrcode";
 
-// POST method → User details लेकर QR Image बनाना
-app.post("/api/qr-create", async (req, res) => {
-  const { name, phone, email, website } = req.body;
-
-  if (!name || !phone) {
-    return res.status(400).json({ error: "Name & Phone are required" });
-  }
-
-  const qrText = `
-Name: ${name}
-Phone: ${phone}
-Email: ${email || "N/A"}
-Website: ${website || "N/A"}
-`;
-
-  try {
-    const qrImage = await QRCode.toDataURL(qrText);
-    return res.json({ success: true, qr: qrImage });
-  } catch (err) {
-    console.error("QR Error:", err);
-    return res.status(500).json({ error: "QR Generation Failed" });
-  }
-});
-
-// GET method → Simple QR generate (for debugging)
-app.get("/api/qr-test/:text", async (req, res) => {
-  const { text } = req.params;
-  try {
-    const qr = await QRCode.toDataURL(text);
-    res.json({ qr });
-  } catch {
-    res.json({ error: "QR Failed" });
-  }
-});
 
 
 
