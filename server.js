@@ -219,6 +219,46 @@ app.get("/api/video-status/:id", async (req, res) => {
 
 
 
+// ======================= QR Business Card API ==========================
+import QRCode from "qrcode";
+
+// POST method → User details लेकर QR Image बनाना
+app.post("/api/qr-create", async (req, res) => {
+  const { name, phone, email, website } = req.body;
+
+  if (!name || !phone) {
+    return res.status(400).json({ error: "Name & Phone are required" });
+  }
+
+  const qrText = `
+Name: ${name}
+Phone: ${phone}
+Email: ${email || "N/A"}
+Website: ${website || "N/A"}
+`;
+
+  try {
+    const qrImage = await QRCode.toDataURL(qrText);
+    return res.json({ success: true, qr: qrImage });
+  } catch (err) {
+    console.error("QR Error:", err);
+    return res.status(500).json({ error: "QR Generation Failed" });
+  }
+});
+
+// GET method → Simple QR generate (for debugging)
+app.get("/api/qr-test/:text", async (req, res) => {
+  const { text } = req.params;
+  try {
+    const qr = await QRCode.toDataURL(text);
+    res.json({ qr });
+  } catch {
+    res.json({ error: "QR Failed" });
+  }
+});
+
+
+
 // 🚀 START SERVER
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Backend running on port ${PORT}`));
